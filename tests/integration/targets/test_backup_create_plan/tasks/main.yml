@@ -19,6 +19,10 @@
         plan_rules:
           - "{{ daily_backup }}"
 
+    - name: Testing
+      ansible.builtin.debug:
+        msg: "Just testing"
+
     - name: Get backup plan info
       amazon.aws.backup_plan_info:
         backup_plan_names: ["{{ plan_name }}"]
