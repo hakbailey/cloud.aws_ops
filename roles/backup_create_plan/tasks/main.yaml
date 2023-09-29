@@ -13,6 +13,10 @@
   module_defaults:
     group/aws: "{{ aws_setup_credentials__output }}"
   block:
+    - name: Testing
+      ansible.builtin.debug:
+        msg: "Just testing"
+
     - name: Create or update backup vault
       block:
         - name: Create or update backup vault
