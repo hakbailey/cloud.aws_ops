@@ -15,7 +15,7 @@
   block:
     - name: Testing
       ansible.builtin.debug:
-        msg: "Just testing some more"
+        msg: "Just testing"
 
     - name: Create or update backup vault
       block:
