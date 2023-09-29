@@ -88,6 +88,7 @@ jobs:
         with:
           path: ${{ env.source_dir }}
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
 
       - name: Echo base ref
         run: echo ${{ needs.get-base-ref.outputs.base_ref }}
