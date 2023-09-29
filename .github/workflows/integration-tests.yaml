@@ -154,7 +154,7 @@ jobs:
         run: |
           import json, os
           with open(os.environ.get('GITHUB_OUTPUT'), "a", encoding="utf-8") as fh:
-              fh.write(f'ansible_test_targets={json.loads(os.environ.get("ALL_TEST_TARGETS")).get(os.environ.get("WORKFLOW_ID"))}\n')
+              fh.write(f'ansible_test_targets={json.loads(os.environ.get("ALL_TEST_TARGETS")).get(os.environ.get("JOB_ID"))}\n')
         shell: python
 
       - name: Display ansible test targets
