@@ -89,6 +89,9 @@ jobs:
           path: ${{ env.source_dir }}
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Echo base ref
+        run: echo ${{ needs.get-base-ref.outputs.base_ref }}
+
       - name: List changes for pull request
         id: splitter
         uses: hakbailey/github_actions/.github/actions/ansible_test_splitter@aws-testing
@@ -216,3 +219,39 @@ jobs:
           ansible_version: ${{ env.ansible_version }}
           ansible_test_requirement_files: 'test-requirements.txt'
           ansible_test_targets: ${{ steps.read-targets.outputs.ansible_test_targets }}
+
+  report-status:
+    name: Report PR status
+    permissions:
+      statuses: write
+    if: always()
+    needs: run-integration-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update PR status with result
+        uses: actions/github-script@v6
+        env:
+          CONCLUSION: '${{ needs.run-integration-tests.result }}'
+        with:
+          script: |
+            const started = new Date(context.payload.workflow_run.run_started_at);
+            const now = new Date();
+            const diff_seconds = Math.floor((now - started) / 1000);
+            const diff_minutes = Math.floor(diff_seconds / 60);
+            const remainder = diff_seconds % 60;
+            const conclusion = process.env.CONCLUSION;
+            const status_descriptions = {'success': `Successful in ${diff_minutes}m ${remainder}s`, 'failure': 'Worfklow run failed, see logs for details', 'error': `Workflow run ${conclusion}, see logs for details`};
+            const status = Object.keys(status_descriptions).includes(conclusion) ? conclusion : 'error';
+            const owner = context.payload.workflow_run.repository.owner.login;
+            const repo = context.payload.workflow_run.head_repository.name;
+            const target_url = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            const args = {
+              owner: owner,
+              repo: repo,
+              sha: context.payload.workflow_run.head_commit.id,
+              state: status,
+              target_url: target_url,
+              context: 'run-integration-tests',
+              description: status_descriptions[status]
+            };
+            const result = await github.rest.repos.createCommitStatus(args);
