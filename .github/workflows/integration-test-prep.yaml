@@ -1,0 +1,19 @@
+---
+name: Integration test prep
+on: pull_request
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write PR base ref to file
+        run: |
+          mkdir -p ./pr
+          echo "${{ github.event.pull_request.base.ref }}" > ./pr/base-ref
+
+      - name: Upload file as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: base-ref
+          path: ./pr/base-ref
+          retention-days: 1
