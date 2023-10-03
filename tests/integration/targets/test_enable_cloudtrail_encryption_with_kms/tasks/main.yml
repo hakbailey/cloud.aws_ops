@@ -10,6 +10,10 @@
           security_token: "{{ security_token | default(omit) }}"
           region: "{{ aws_region }}"
       block:
+        - name: Just testing
+          ansible.builtin.debug:
+            msg: "Just a test"
+
         - name: Create S3 bucket
           amazon.aws.s3_bucket:
             state: present
