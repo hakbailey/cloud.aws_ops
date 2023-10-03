@@ -4,6 +4,10 @@
     group/aws: "{{ aws_setup_credentials__output }}"
 
   block:
+    - name: Testing
+      ansible.builtin.debug:
+        msg: "Just testing"
+
     - name: Verify that tag to terminate instances with was provided
       ansible.builtin.fail:
         msg: -"Please set 'tag_key_to_terminate_instances' to a tag based on which instances should be terminated..."

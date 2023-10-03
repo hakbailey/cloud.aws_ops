@@ -8,6 +8,10 @@
       region: "{{ aws_region }}"
 
   block:
+    - name: Testing
+      ansible.builtin.debug:
+        msg: "Just testing"
+
     - name: Set plan name variable
       ansible.builtin.set_fact:
         plan_name: "{{ resource_prefix }}-plan"
