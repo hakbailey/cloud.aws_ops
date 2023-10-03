@@ -25,5 +25,28 @@ jobs:
     steps:
       - name: Attempt to output a secret
         run: |
-          echo $SUPERSECRET
+          echo "$SUPERSECRET" is empty here
           printenv
+
+  label-pr:
+    name: Attempt to label PR
+    permissions:
+      statuses: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const owner = context.payload.pull_request.base.repo.owner.login;
+            const repo = context.payload.pull_request.base.repo.name;
+            const pr_number = context.payload.number;
+            const target_url = `https://github.com/repos/{owner}/{repo}/issues/{pr_number}/labels`;
+            const args = {
+              owner: owner,
+              repo: repo,
+              issue_number: pr_number,
+              labels: [
+                'safe-to-test'
+              ],
+            };
+            const result = await github.rest.issues.createLabel(args);
