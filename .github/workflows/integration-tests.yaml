@@ -1,0 +1,268 @@
+---
+name: Run integration tests
+on:
+  workflow_run:
+    workflows: ['Integration test prep']
+    types:
+      - completed
+permissions: {}
+
+jobs:
+
+  update-status-pending:
+    name: Update PR status to pending
+    permissions:
+      statuses: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set pending status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const owner = context.payload.workflow_run.repository.owner.login;
+            const repo = context.payload.workflow_run.head_repository.name;
+            const target_url = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            const args = {
+              owner: owner,
+              repo: repo,
+              sha: context.payload.workflow_run.head_commit.id,
+              state: 'pending',
+              target_url: target_url,
+              context: 'run-integration-tests',
+              description: 'This check has started...'
+            };
+            const result = await github.rest.repos.createCommitStatus(args);
+
+  get-base-ref:
+    name: Get PR base ref
+    needs: update-status-pending
+    outputs:
+      base_ref: ${{ steps.read-artifact.outputs.result }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/github-script@v6
+        with:
+          script: |
+            var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: ${{ github.event.workflow_run.id }},
+            });
+            var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "base-ref"
+            })[0];
+            var download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: matchArtifact.id,
+              archive_format: 'zip',
+            });
+            var fs = require('fs');
+            fs.writeFileSync('${{github.workspace}}/base-ref.zip', Buffer.from(download.data));
+      - name: Unzip downloaded artifact
+        run: unzip base-ref.zip
+
+      - name: Read artifact data
+        id: read-artifact
+        uses: actions/github-script@v6
+        with:
+          script: |
+            var fs = require('fs');
+            var base_ref = String(fs.readFileSync('./base-ref'));
+            return base_ref.trim();
+
+  splitter:
+    name: Split test targets into multiple jobs
+    needs: get-base-ref
+    env:
+      source_dir: "cloud_awsops"
+    outputs:
+      test_targets: ${{ steps.splitter.outputs.test_targets }}
+      test_targets_json: ${{ steps.splitter.outputs.test_targets_json }}
+      test_jobs: ${{ steps.splitter.outputs.test_jobs }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout collection
+        uses: actions/checkout@v4
+        with:
+          path: ${{ env.source_dir }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: List changes for pull request
+        id: splitter
+        uses: hakbailey/github_actions/.github/actions/ansible_test_splitter@aws-testing
+        with:
+          collections_to_test: ${{ env.source_dir }}
+          base_ref: ${{ needs.get-base-ref.outputs.base_ref }}
+          total_jobs: 2
+
+      - name: Display splitter output
+        run: |
+          echo "test_targets=${{ steps.splitter.outputs.test_targets }}"
+          echo "test_targets_json=${{ steps.splitter.outputs.test_targets_json }}"
+          echo "test_jobs=${{ steps.splitter.outputs.test_jobs }}"
+
+  authenticate:
+    name: Authenticate to AWS via OIDC
+    permissions:
+      id-token: write
+    needs: update-status-pending
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        id: creds
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GHA_IAM_ROLE }}
+          aws-region: us-east-1
+          output-credentials: true
+
+      - name: Write credentials to secrets manager
+        run: |
+          aws secretsmanager create-secret --name ansible-test/gha-integration-tests/${{ github.event.workflow_run.id }}/AWS_ACCESS_KEY_ID --secret-string ${{ steps.creds.outputs.aws-access-key-id }}
+          aws secretsmanager create-secret --name ansible-test/gha-integration-tests/${{ github.event.workflow_run.id }}/AWS_SECRET_ACCESS_KEY --secret-string ${{ steps.creds.outputs.aws-secret-access-key }}
+          aws secretsmanager create-secret --name ansible-test/gha-integration-tests/${{ github.event.workflow_run.id }}/AWS_SESSION_TOKEN --secret-string ${{ steps.creds.outputs.aws-session-token }}
+
+  run-integration-tests:
+    name: "integration-${{ matrix.job-id }}"
+    needs: [authenticate, splitter]
+    if: ${{ needs.splitter.outputs.test_targets != '' }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.SM_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SM_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+      source: "./source"
+      ansible_version: "stable-2.15"
+      python_version: "3.11"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        job-id: ${{ fromJson(needs.splitter.outputs.test_jobs) }}
+    steps:
+
+      - name: Read test targets
+        id: read-targets
+        env:
+          ALL_TEST_TARGETS: ${{ needs.splitter.outputs.test_targets_json }}
+          JOB_ID: ${{ matrix.job-id }}
+        run: |
+          import json, os
+          with open(os.environ.get('GITHUB_OUTPUT'), "a", encoding="utf-8") as fh:
+              fh.write(f'ansible_test_targets={json.loads(os.environ.get("ALL_TEST_TARGETS")).get(os.environ.get("JOB_ID"))}\n')
+        shell: python
+
+      - name: Display ansible test targets
+        run: |
+          echo "ansible_test_targets -> ${{ steps.read-targets.outputs.ansible_test_targets }}"
+        shell: bash
+
+      - name: Checkout collection
+        uses: actions/checkout@v4
+        with:
+          path: ${{ env.source }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Pre install collections dependencies first so the collection install does not
+        run: >-
+          ansible-galaxy collection install
+          --pre "-r${{ env.source }}/tests/integration/requirements.yml"
+          -p /home/runner/collections/
+        shell: bash
+
+      - name: Build and install collection
+        id: install
+        uses: ansible-network/github_actions/.github/actions/build_install_collection@main
+        with:
+          install_python_dependencies: false
+          source_path: ${{ env.source }}
+
+      - name: Get credentials from secrets manager
+        uses: aws-actions/aws-secretsmanager-get-secrets@v1
+        with:
+          secret-ids: |
+            NEW_ACCESS_KEY_ID,ansible-test/gha-integration-tests/${{ github.event.workflow_run.id }}/AWS_ACCESS_KEY_ID
+            NEW_SECRET_ACCESS_KEY,ansible-test/gha-integration-tests/${{ github.event.workflow_run.id }}/AWS_SECRET_ACCESS_KEY
+            NEW_SESSION_TOKEN,ansible-test/gha-integration-tests/${{ github.event.workflow_run.id }}/AWS_SESSION_TOKEN
+
+      - name: Update AWS env variables
+        run: |
+          echo "::add-mask::${{ env.NEW_ACCESS_KEY_ID }}"
+          echo "AWS_ACCESS_KEY_ID=${{ env.NEW_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "::add-mask::${{ env.NEW_SECRET_ACCESS_KEY }}"
+          echo "AWS_SECRET_ACCESS_KEY=${{ env.NEW_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "::add-mask::${{ env.NEW_SESSION_TOKEN }}"
+          echo "AWS_SESSION_TOKEN=${{ env.NEW_SESSION_TOKEN }}" >> $GITHUB_ENV
+
+      - name: Create cloud config file
+        uses: hakbailey/github_actions/.github/actions/ansible_aws_test_provider@aws-testing
+        with:
+          collection_path: ${{ steps.install.outputs.collection_path }}
+
+      # we use raw git to create a repository in the tests
+      # this fails if the committer doesn't have a name and an email set
+      - name: Set up git
+        run: |
+          git config --global user.email gha@localhost
+          git config --global user.name "Github Actions"
+        shell: bash
+
+      - name: Run integration tests
+        uses: ansible-network/github_actions/.github/actions/ansible_test_integration@main
+        with:
+          collection_path: ${{ steps.install.outputs.collection_path }}
+          python_version: ${{ env.python_version }}
+          ansible_version: ${{ env.ansible_version }}
+          ansible_test_requirement_files: 'test-requirements.txt'
+          ansible_test_targets: ${{ steps.read-targets.outputs.ansible_test_targets }}
+
+  report-status:
+    name: Report PR status
+    permissions:
+      statuses: write
+    if: always()
+    needs: run-integration-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update PR status with result
+        uses: actions/github-script@v6
+        env:
+          CONCLUSION: '${{ needs.run-integration-tests.result }}'
+        with:
+          script: |
+            const started = new Date(context.payload.workflow_run.run_started_at);
+            const now = new Date();
+            const diff_seconds = Math.floor((now - started) / 1000);
+            const diff_minutes = Math.floor(diff_seconds / 60);
+            const remainder = diff_seconds % 60;
+            let conclusion = process.env.CONCLUSION;
+            const descriptions = {
+              'success': `Successful in ${diff_minutes}m ${remainder}s`,
+              'failure': 'Worfklow run failed, see logs for details',
+              'skipped': 'Integration tests skipped, no changed test targets identified',
+              'cancelled': 'Workflow run cancelled',
+              'error': 'Unexpected result, see logs for details'
+            };
+            if (['success', 'skipped'].includes(conclusion)) {
+                status = 'success'
+              } else if (['cancelled', 'failure'].includes(conclusion)) {
+                status = 'failure'
+              } else {
+                conclusion = 'error'
+                status = 'failure'
+              };
+            const owner = context.payload.workflow_run.repository.owner.login;
+            const repo = context.payload.workflow_run.head_repository.name;
+            const target_url = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            const args = {
+              owner: owner,
+              repo: repo,
+              sha: context.payload.workflow_run.head_commit.id,
+              state: status,
+              target_url: target_url,
+              context: 'run-integration-tests',
+              description: descriptions[conclusion]
+            };
+            const result = await github.rest.repos.createCommitStatus(args);
