@@ -6,6 +6,11 @@
     custom_ami_private_key_file: "{{ setup_rsa_keys__private_key_file }}"
   block:
     # Test: create custom AMI
+
+    - name: Testing a failure
+      ansible.builtin.fail:
+        msg: "Just for demo purposes, this test failed"
+
     - name: Create AMI with initial settings
       ansible.builtin.include_role:
         name: cloud.aws_ops.customized_ami
