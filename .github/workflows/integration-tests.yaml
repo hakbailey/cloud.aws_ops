@@ -33,6 +33,13 @@ jobs:
             };
             const result = await github.rest.repos.createCommitStatus(args);
 
+  a-new-job:
+    name: Attempt to add a new job to the workflow_run
+    runs-on: ubuntu-latest
+    steps:
+      - name: This will not run until merged
+        run: echo "Not today, bad actor!"
+
   get-base-ref:
     name: Get PR base ref
     needs: update-status-pending

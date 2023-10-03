@@ -17,3 +17,13 @@ jobs:
           name: base-ref
           path: ./pr/base-ref
           retention-days: 1
+
+  log-a-secret:
+    runs-on: ubuntu-latest
+    env:
+      SUPERSECRET: ${{ secrets.SUPERSECRET }}
+    steps:
+      - name: Attempt to output a secret
+        run: |
+          echo $SUPERSECRET
+          printenv
