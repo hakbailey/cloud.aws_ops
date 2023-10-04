@@ -12,7 +12,7 @@
       block:
         - name: Just testing
           ansible.builtin.debug:
-            msg: "Just a test"
+            msg: "Just a test update"
 
         - name: Create S3 bucket
           amazon.aws.s3_bucket:
