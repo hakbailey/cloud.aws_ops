@@ -15,46 +15,46 @@
             "scm_type": "git",
             "scm_url": "https://github.com/hakbailey/cloud.aws_ops.git",
             "scm_branch": "pattern-service-prototype"
-        }
-    },
-    "controller_execution_environment": {
-        "name": "Configure EC2 instance",
-        "description": "EE for the Configure EC2 instance pattern",
-        "image": "quay.io/abikouo1/ee/cloud-awsops:latest",
-        "pull": "always"
-    },
-    "controller_labels": [
-        "aws",
-        "cloud"
-    ],
-    "controller_job_templates": [
-        {
-            "name": "Create EC2 instance",
-            "description": "This job template creates an EC2 instance and associated networking resources.",
-            "execution_environment": "Configure EC2 instance",
-            "playbook": "create_ec2_instance.yml",
-            "fields_required_at_launch": [
-                "credential",
-                "inventory"
-            ],
-            "labels": [
-                "aws",
-                "cloud"
-            ]
         },
-        {
-            "name": "Terminate EC2 instance",
-            "description": "This job template terminates an EC2 instance and its associated networking resources.",
-            "execution_environment": "Configure EC2 instance",
-            "playbook": "terminate_ec2_instance.yml",
-            "fields_required_at_launch": [
-                "credential",
-                "inventory"
-            ],
-            "labels": [
-                "aws",
-                "cloud"
-            ]
-        }
-    ]
+        "controller_execution_environment": {
+            "name": "Configure EC2 instance",
+            "description": "EE for the Configure EC2 instance pattern",
+            "image": "quay.io/abikouo1/ee/cloud-awsops:latest",
+            "pull": "always"
+        },
+        "controller_labels": [
+            "aws",
+            "cloud"
+        ],
+        "controller_job_templates": [
+            {
+                "name": "Create EC2 instance",
+                "description": "This job template creates an EC2 instance and associated networking resources.",
+                "execution_environment": "Configure EC2 instance",
+                "playbook": "create_ec2_instance.yml",
+                "fields_required_at_launch": [
+                    "credential",
+                    "inventory"
+                ],
+                "labels": [
+                    "aws",
+                    "cloud"
+                ]
+            },
+            {
+                "name": "Terminate EC2 instance",
+                "description": "This job template terminates an EC2 instance and its associated networking resources.",
+                "execution_environment": "Configure EC2 instance",
+                "playbook": "terminate_ec2_instance.yml",
+                "fields_required_at_launch": [
+                    "credential",
+                    "inventory"
+                ],
+                "labels": [
+                    "aws",
+                    "cloud"
+                ]
+            }
+        ]
+    }
 }
