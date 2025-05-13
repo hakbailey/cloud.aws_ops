@@ -14,13 +14,15 @@
             "description": "Project for the Configure EC2 instance pattern",
             "scm_type": "git",
             "scm_url": "https://github.com/hakbailey/cloud.aws_ops.git",
-            "scm_branch": "pattern-service-prototype"
+            "scm_branch": "pattern-service-prototype",
+            "scm_credential_required": true
         },
         "controller_execution_environment": {
             "name": "Configure EC2 instance",
             "description": "EE for the Configure EC2 instance pattern",
             "image": "quay.io/abikouo1/ee/cloud-awsops:latest",
-            "pull": "always"
+            "pull": "always",
+            "registry_credential_required": true
         },
         "controller_labels": [
             "aws",
@@ -32,10 +34,9 @@
                 "description": "This job template creates an EC2 instance and associated networking resources.",
                 "execution_environment": "Configure EC2 instance",
                 "playbook": "create_ec2_instance.yml",
-                "fields_required_at_launch": [
-                    "credential",
-                    "inventory"
-                ],
+                "credential_required_at_launch": true,
+                "ask_inventory_on_launch": true,
+                "ask_verbosity_on_launch": true,
                 "labels": [
                     "aws",
                     "cloud"
@@ -46,10 +47,9 @@
                 "description": "This job template terminates an EC2 instance and its associated networking resources.",
                 "execution_environment": "Configure EC2 instance",
                 "playbook": "terminate_ec2_instance.yml",
-                "fields_required_at_launch": [
-                    "credential",
-                    "inventory"
-                ],
+                "credential_required_at_launch": true,
+                "ask_inventory_on_launch": true,
+                "ask_verbosity_on_launch": true,
                 "labels": [
                     "aws",
                     "cloud"
