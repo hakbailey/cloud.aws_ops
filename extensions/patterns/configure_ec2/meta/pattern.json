@@ -12,15 +12,15 @@
         "controller_project": {
             "name": "Configure EC2 instance",
             "description": "Project for the Configure EC2 instance pattern",
-            "scm_type": "git",
-            "scm_url": "https://github.com/hakbailey/cloud.aws_ops.git",
+            "scm_type": "remote",
+            "scm_url": "http://myaap/api/galaxy/v3/plugin/ansible/content/published/collections/artifacts/cloud-aws_ops-4.0.0-dev0.tar.gz",
             "scm_branch": "pattern-service-prototype",
             "scm_credential_required": true
         },
         "controller_execution_environment": {
             "name": "Configure EC2 instance",
             "description": "EE for the Configure EC2 instance pattern",
-            "image": "quay.io/abikouo1/ee/cloud-awsops:latest",
+            "image": "quay.io/hebailey/aws_ops-ee",
             "pull": "always",
             "registry_credential_required": true
         },
