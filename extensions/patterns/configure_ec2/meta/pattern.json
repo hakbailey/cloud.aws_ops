@@ -17,7 +17,7 @@
             "name": "Configure EC2 instance",
             "description": "EE for the Configure EC2 instance pattern",
             "image_name": "hebailey/aws_ops-ee",
-            "pull": "always"
+            "pull": "missing"
         },
         "controller_labels": [
             "aws",
