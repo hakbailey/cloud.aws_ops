@@ -164,8 +164,10 @@
                     "cloud"
                 ],
                 "survey": {
+                    "name": "Terminate EC2 Instance Survey",
+                    "description": "Survey to configure the EC2 instance termination pattern",
                     "spec": [
-                        "name": "Terminate EC2 Instance Survey""description": "Survey to configure the EC2 instance termination pattern""spec": {
+                        {
                             "type": "text",
                             "question_name": "AWS Region",
                             "question_description": "Name of AWS region to create instance in",
