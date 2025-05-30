@@ -29,6 +29,7 @@
                 "description": "This job template creates an EC2 instance and associated networking resources.",
                 "execution_environment": "Configure EC2 instance",
                 "playbook": "create_ec2_instance.yml",
+                "primary": true,
                 "ask_credential_on_launch": true,
                 "ask_inventory_on_launch": true,
                 "ask_verbosity_on_launch": true,
